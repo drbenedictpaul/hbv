@@ -1,7 +1,6 @@
 # ===================================================================
-# FILE: final_report.jl (Correct Clinical Sequence Version)
-# PURPOSE: Analyzes the data following the clinical workflow, starting
-#          with the clinician's diagnosis.
+# FILE: final_report.jl (Generates Report File)
+# PURPOSE: Generates a complete report and saves it to a text file.
 # ===================================================================
 
 println("Setting up the environment...")
@@ -20,69 +19,91 @@ println("Environment setup complete.")
 println("\nLoading and Preparing Data...")
 hbv_data = CSV.read("hbv.csv", DataFrame)
 
-println("\nApplying the Biomarker-Based Rule...")
+println("Applying Biomarker-Based Rule as the Reference Standard...")
 transform!(hbv_data, AsTable(All()) => ByRow(apply_biomarker_rule) => :Biomarker_Rule_Diagnosis)
 
 analysis_cohort = filter(row -> row.Biomarker_Rule_Diagnosis != "Ambiguous", hbv_data)
-println("Analysis performed on $(nrow(analysis_cohort)) patients.")
+println("Analysis will be performed on $(nrow(analysis_cohort)) patients.")
 
 
-# --- Calculation for the Clinician-First Table ---
+# --- Calculation of All Necessary Numbers ---
+total_clinical_ahb = nrow(filter(row -> row.Clinical_Diagnosis == "AHB", analysis_cohort))
+total_clinical_chbae = nrow(filter(row -> row.Clinical_Diagnosis == "CHBAE", analysis_cohort))
+total_rule_ahb = nrow(filter(row -> row.Biomarker_Rule_Diagnosis == "AHB", analysis_cohort))
+total_rule_chbae = nrow(filter(row -> row.Biomarker_Rule_Diagnosis == "CHBAE", analysis_cohort))
 
-# Group 1: Patients the clinician diagnosed as 'AHB'
-clinician_diagnosed_ahb_group = filter(row -> row.Clinical_Diagnosis == "AHB", analysis_cohort)
-total_clinician_ahb = nrow(clinician_diagnosed_ahb_group)
-# How many of this group did the rule agree with?
-rule_agrees_is_ahb = nrow(filter(row -> row.Biomarker_Rule_Diagnosis == "AHB", clinician_diagnosed_ahb_group))
-# How many did the rule find to be CHBAE?
-rule_disagrees_is_chbae = nrow(filter(row -> row.Biomarker_Rule_Diagnosis == "CHBAE", clinician_diagnosed_ahb_group))
+tp = nrow(filter(row -> row.Biomarker_Rule_Diagnosis == "AHB" && row.Clinical_Diagnosis == "AHB", analysis_cohort))
+tn = nrow(filter(row -> row.Biomarker_Rule_Diagnosis == "CHBAE" && row.Clinical_Diagnosis == "CHBAE", analysis_cohort))
+fp = nrow(filter(row -> row.Biomarker_Rule_Diagnosis == "CHBAE" && row.Clinical_Diagnosis == "AHB", analysis_cohort))
+fn = nrow(filter(row -> row.Biomarker_Rule_Diagnosis == "AHB" && row.Clinical_Diagnosis == "CHBAE", analysis_cohort))
 
+# --- GENERATE THE REPORT FILE ---
+# Open a new file in "write" mode. It will be named 'diagnostic_report.txt'
+report_filename = "diagnostic_report.txt"
+open(report_filename, "w") do io
+    # All println and @printf commands inside this block will write to the file 'io'
 
-# Group 2: Patients the clinician diagnosed as 'CHBAE'
-clinician_diagnosed_chbae_group = filter(row -> row.Clinical_Diagnosis == "CHBAE", analysis_cohort)
-total_clinician_chbae = nrow(clinician_diagnosed_chbae_group)
-# How many of this group did the rule agree with?
-rule_agrees_is_chbae = nrow(filter(row -> row.Biomarker_Rule_Diagnosis == "CHBAE", clinician_diagnosed_chbae_group))
-# How many did the rule find to be AHB?
-rule_disagrees_is_ahb = nrow(filter(row -> row.Biomarker_Rule_Diagnosis == "AHB", clinician_diagnosed_chbae_group))
+    # --- START OF THE REPORT ---
+    println(io, "=========================================================================================")
+    println(io, "      FINAL DIAGNOSTIC ACCURACY REPORT")
+    println(io, "      Analysis performed on $(nrow(analysis_cohort)) patients")
+    println(io, "=========================================================================================")
 
+    # --- Section 1: High-Level Summary Table (Your Format) ---
+    println(io, "\n--- 1. High-Level Summary of Diagnosis Counts ---\n")
 
-# --- START OF THE REPORT ---
-println("\n\n=======================================================================")
-println("      Analysis of Initial Clinical Impression vs. Biomarker Rule")
-println("=======================================================================")
-println("\nThis report analyzes the diagnoses made by clinicians and shows how they")
-println("compare to the findings of the Biomarker-Based Rule.\n")
+    println(io, "┌──────────────────────┬────────────────────────┬──────────────────────┐")
+    @printf(io, "│ %-20s │ %-22s │ %-20s │\n", "Condition", "Clinical Diagnosis", "Biomarker-Based Rule")
+    println(io, "│                      │ (Total Patients)       │ (Total Patients)     │")
+    println(io, "├──────────────────────┼────────────────────────┼──────────────────────┤")
+    @printf(io, "│ %-20s │ %-22d │ %-20d │\n", "AHB", total_clinical_ahb, total_rule_ahb)
+    @printf(io, "│ %-20s │ %-22d │ %-20d │\n", "CHBAE", total_clinical_chbae, total_rule_chbae)
+    println(io, "└──────────────────────┴────────────────────────┴──────────────────────┘")
 
+    # --- Section 2: Detailed Head-to-Head Comparison (Confusion Matrix) ---
+    println(io, "\n\n--- 2. Detailed Comparison of Agreement (Confusion Matrix) ---\n")
+    println(io, "This table breaks down the counts from the summary above, showing")
+    println(io, "exactly where the diagnoses agreed and disagreed.\n")
 
-# --- The Final, Correctly Structured Table ---
-println("┌──────────────────────────┬──────────────────┬─────────────────────────────────────┐")
-@printf("│ %-24s │ %-16s │ %-35s │\n", "When Clinician Diagnosed:", "Total Patients", "Breakdown According to Biomarker Rule")
-println("├──────────────────────────┼──────────────────┼─────────────────────────────────────┤")
+    println(io, "┌─────────────────────────────┬────────────────────────┬────────────────────────┐")
+    @printf(io, "│                             │ %-22s │ %-22s │\n", "Clinician Diagnosed As:", "Clinician Diagnosed As:")
+    @printf(io, "│ %-27s │ %-22s │ %-22s │\n", "Actual (Biomarker Rule)", "AHB", "CHBAE")
+    println(io, "├─────────────────────────────┼────────────────────────┼────────────────────────┤")
+    @printf(io, "│ %-27s │ %-22d │ %-22d │\n", "AHB", tp, fn)
+    @printf(io, "│ %-27s │ %-22d │ %-22d │\n", "CHBAE", fp, tn)
+    println(io, "└─────────────────────────────┴────────────────────────┴────────────────────────┘")
+    println(io, "\nKey finding: The table shows 13 patients who were actually AHB were misdiagnosed by clinicians as CHBAE.")
 
-# AHB Row
-@printf("│ %-24s │ %-16d │ %-35s │\n", "AHB", total_clinician_ahb, "- $rule_agrees_is_ahb were confirmed as AHB")
-@printf("│ %-24s │ %-16s │ %-35s │\n", "", "", "- $rule_disagrees_is_chbae were found to be CHBAE")
-agreement_rate_ahb = (rule_agrees_is_ahb / total_clinician_ahb) * 100
-@printf("│ %-24s │ %-16s │ %-35.2f%% │\n", "", "", agreement_rate_ahb)
-println("│                          │                  │ Agreement Rate                      │")
-println("├──────────────────────────┼──────────────────┼─────────────────────────────────────┤")
+    # --- Section 3: Formal Performance Statistics ---
+    println(io, "\n\n--- 3. Performance Statistics of the Initial Clinical Impression ---\n")
+    println(io, "The following standard metrics quantify the performance based on the detailed table above.\n")
 
-# CHBAE Row
-@printf("│ %-24s │ %-16d │ %-35s │\n", "CHBAE", total_clinician_chbae, "- $rule_agrees_is_chbae were confirmed as CHBAE")
-@printf("│ %-24s │ %-16s │ %-35s │\n", "", "", "- $rule_disagrees_is_ahb were found to be AHB (misdiagnosed)")
-agreement_rate_chbae = (rule_agrees_is_chbae / total_clinician_chbae) * 100
-@printf("│ %-24s │ %-16s │ %-35.2f%% │\n", "", "", agreement_rate_chbae)
-println("│                          │                  │ Agreement Rate                      │")
-println("└──────────────────────────┴──────────────────┴─────────────────────────────────────┘")
+    accuracy = (tp + tn) / (tp + tn + fp + fn) * 100
+    sensitivity = (tp / (tp + fn)) * 100
+    specificity = (tn / (tn + fp)) * 100
+    ppv = (tp / (tp + fp)) * 100
+    npv = (tn / (tn + fn)) * 100
 
+    println(io, "┌─────────────────────────────┬─────────────┐")
+    @printf(io, "│ %-27s │ %-11s │\n", "Statistic", "Result (%)")
+    println(io, "├─────────────────────────────┼─────────────┤")
+    @printf(io, "│ %-27s │ %-11.2f │\n", "Accuracy", accuracy)
+    @printf(io, "│ %-27s │ %-11.2f │\n", "Sensitivity", sensitivity)
+    @printf(io, "│ %-27s │ %-11.2f │\n", "Specificity", specificity)
+    @printf(io, "│ %-27s │ %-11.2f │\n", "Positive Predictive Value (PPV)", ppv)
+    @printf(io, "│ %-27s │ %-11.2f │\n", "Negative Predictive Value (NPV)", npv)
+    println(io, "└─────────────────────────────┴─────────────┘")
 
-# --- Summary ---
-println("\n\n--- Summary of Findings ---\n")
-println("When the initial clinical impression was AHB, it was correct 100% of the time according to the biomarker rule.")
-println("\nHowever, when the initial clinical impression was CHBAE, it was only correct 58.06% of the time.")
-println("The primary diagnostic gap is the $rule_disagrees_is_ahb patients who were clinically diagnosed as CHBAE, but were found to be true AHB cases by the biomarker rule.")
+    # --- Section 4: Conclusion ---
+    println(io, "\n\n--- 4. Conclusion ---\n")
+    println(io, "The analysis shows that while the clinical impression is highly reliable when diagnosing 'AHB' (100% PPV),")
+    println(io, "it is significantly less reliable when diagnosing 'CHBAE', with a Negative Predictive Value of only 58.06%.")
+    println(io, "This is due to a low Sensitivity (76.79%), where 13 true AHB cases were misclassified.")
+    println(io, "The Biomarker-Based Rule successfully identifies these error cases.")
 
-println("\n=======================================================================")
-println("                           END OF REPORT")
-println("=======================================================================\n")
+    println(io, "\n=========================================================================================")
+    println(io, "                                  END OF REPORT")
+    println(io, "=========================================================================================\n")
+end
+
+println("\nSUCCESS: The full report has been saved to the file: '$report_filename'")

@@ -1,0 +1,58 @@
+=========================================================================================
+      FINAL DIAGNOSTIC ACCURACY REPORT
+      Analysis performed on 74 patients
+=========================================================================================
+
+--- 1. High-Level Summary of Diagnosis Counts ---
+
+┌──────────────────────┬────────────────────────┬──────────────────────┐
+│ Condition            │ Clinical Diagnosis     │ Biomarker-Based Rule │
+│                      │ (Total Patients)       │ (Total Patients)     │
+├──────────────────────┼────────────────────────┼──────────────────────┤
+│ AHB                  │ 43                     │ 56                   │
+│ CHBAE                │ 31                     │ 18                   │
+└──────────────────────┴────────────────────────┴──────────────────────┘
+
+
+--- 2. Detailed Comparison of Agreement (Confusion Matrix) ---
+
+This table breaks down the counts from the summary above, showing
+exactly where the diagnoses agreed and disagreed.
+
+┌─────────────────────────────┬────────────────────────┬────────────────────────┐
+│                             │ Clinician Diagnosed As: │ Clinician Diagnosed As: │
+│ Actual (Biomarker Rule)     │ AHB                    │ CHBAE                  │
+├─────────────────────────────┼────────────────────────┼────────────────────────┤
+│ AHB                         │ 43                     │ 13                     │
+│ CHBAE                       │ 0                      │ 18                     │
+└─────────────────────────────┴────────────────────────┴────────────────────────┘
+
+Key finding: The table shows 13 patients who were actually AHB were misdiagnosed by clinicians as CHBAE.
+
+
+--- 3. Performance Statistics of the Initial Clinical Impression ---
+
+The following standard metrics quantify the performance based on the detailed table above.
+
+┌─────────────────────────────┬─────────────┐
+│ Statistic                   │ Result (%)  │
+├─────────────────────────────┼─────────────┤
+│ Accuracy                    │ 82.43       │
+│ Sensitivity                 │ 76.79       │
+│ Specificity                 │ 100.00      │
+│ Positive Predictive Value (PPV) │ 100.00      │
+│ Negative Predictive Value (NPV) │ 58.06       │
+└─────────────────────────────┴─────────────┘
+
+
+--- 4. Conclusion ---
+
+The analysis shows that while the clinical impression is highly reliable when diagnosing 'AHB' (100% PPV),
+it is significantly less reliable when diagnosing 'CHBAE', with a Negative Predictive Value of only 58.06%.
+This is due to a low Sensitivity (76.79%), where 13 true AHB cases were misclassified.
+The Biomarker-Based Rule successfully identifies these error cases.
+
+=========================================================================================
+                                  END OF REPORT
+=========================================================================================
+
